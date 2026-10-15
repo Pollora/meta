@@ -1,0 +1,77 @@
+{
+    "name": "pollora/meta",
+    "description": "Typed WordPress meta declared with attributes: register_meta(), typed reads and writes, rules, schemas for UI drivers. Runs with or without Laravel.",
+    "type": "library",
+    "keywords": [
+        "meta",
+        "pollora",
+        "post-meta",
+        "typed",
+        "wordpress"
+    ],
+    "homepage": "https://pollora.dev/content/typed-meta/",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Amphibee",
+            "email": "contact@amphibee.fr"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/Pollora/meta/issues",
+        "source": "https://github.com/Pollora/meta"
+    },
+    "require": {
+        "php": "^8.3",
+        "nesbot/carbon": "^3.0",
+        "pollora/attributes": "^0.1 || ^1.0",
+        "pollora/discovery": "^0.1 || ^1.0",
+        "pollora/hook": "^2.0.1",
+        "psr/container": "^2.0",
+        "psr/log": "^3.0"
+    },
+    "require-dev": {
+        "antecedent/patchwork": "^2.2",
+        "brain/monkey": "^2.7",
+        "laravel/pint": "^1.22.1",
+        "mockery/mockery": "^1.6.12",
+        "pestphp/pest": "^3.8.2",
+        "phpstan/phpstan": "^2.1.16",
+        "pollora/colt": "^10.0.1",
+        "szepeviktor/phpstan-wordpress": "^2.0"
+    },
+    "suggest": {
+        "pollora/colt": "Registers a Colt model class declared with a post type attribute as that post type's model"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pollora\\Meta\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Pollora\\Meta\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": [
+            "@test:unit",
+            "@phpstan",
+            "@lint:check"
+        ],
+        "test:unit": "pest",
+        "test:coverage": "pest --coverage",
+        "phpstan": "phpstan analyse",
+        "phpstan:ci": "phpstan analyse --no-progress",
+        "lint": "pint",
+        "lint:check": "pint --test"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
