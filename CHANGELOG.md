@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-15
+
 ### Added
 
 - The typed meta classes of the Pollora framework as a package of their own, class names unchanged: `MetaAccessor` (`of()`, `schemas()`, `schemaFor()`, `extend()`), the fluent `MetaRecord` (`set()`, `fill()` and `save()` return the record), `MetaSchemaBuilder`, `MetaSchemaRepository`, `MetaAuditor`, `MetaUiDrivers`, the value caster, the WordPress adapters (`register_meta()`, the meta API, the REST validation of rules, the inventory of stored rows), `MetaDiscovery` and `MetaUiDriverConformance`
