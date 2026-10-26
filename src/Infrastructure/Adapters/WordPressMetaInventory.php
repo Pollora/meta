@@ -100,7 +100,7 @@ final readonly class WordPressMetaInventory implements MetaInventoryInterface
             return $value;
         }
 
-        return @unserialize(trim($value), ['allowed_classes' => false]);
+        return @unserialize(trim($value), ['allowed_classes' => false]); // nosemgrep -- allowed_classes is false: no object can be instantiated
     }
 
     /**
