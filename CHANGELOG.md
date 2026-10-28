@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The tests run against `pollora/colt` 11 (`require-dev` `^11.0`, it was `^10.0.1`). The package does not require Colt: it only registers a Colt model when one is installed
+
 ## [0.1.0] - 2026-10-15
 
 ### Added
