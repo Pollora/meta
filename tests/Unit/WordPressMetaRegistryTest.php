@@ -3,15 +3,26 @@
 declare(strict_types=1);
 
 use Brain\Monkey\Functions;
+use Pollora\Attributes\Meta;
+use Pollora\Attributes\PostMeta;
+use Pollora\Attributes\PostType;
+use Pollora\Attributes\Taxonomy;
 use Pollora\Hook\Domain\Contract\Action;
 use Pollora\Meta\Application\Services\MetaSchemaBuilder;
+use Pollora\Meta\Domain\Models\MetaSchema;
 use Pollora\Meta\Domain\Services\MetaValueCaster;
 use Pollora\Meta\Infrastructure\Adapters\WordPressMetaRegistry;
 use Pollora\Meta\Tests\Fixtures\ArticleExtras;
 use Pollora\Meta\Tests\Fixtures\BookGenre;
+use Pollora\Meta\Tests\Fixtures\Conference;
 use Pollora\Meta\Tests\Fixtures\Event;
 use Pollora\Meta\Tests\Fixtures\MemberProfile;
 use Pollora\Meta\Tests\Fixtures\ReviewMeta;
+
+// A callable string must name an existing function: define it here so this file passes alone, in any order.
+beforeEach(function (): void {
+    Functions\when('sanitize_text_field')->alias(fn (string $value): string => strip_tags($value));
+});
 
 /**
  * Registers the Event schema right away and returns the register_meta() calls, by key.
@@ -147,4 +158,48 @@ it('adds custom-fields to a declared post type exposing a meta in REST, and to n
     $registry->register((new MetaSchemaBuilder)->build(Event::class));
     $registry->register((new MetaSchemaBuilder)->build(ArticleExtras::class));
     $registry->register((new MetaSchemaBuilder)->build(BookGenre::class));
+});
+
+it('adds custom-fields only when the class declares the post type and exposes a meta in REST', function (): void {
+    $supported = [];
+    Functions\when('did_action')->justReturn(1);
+    Functions\when('register_meta')->justReturn(true);
+    Functions\when('add_post_type_support')->alias(function (string $postType, string $feature) use (&$supported): void {
+        $supported[] = [$postType, $feature];
+    });
+    $registry = new WordPressMetaRegistry(Mockery::mock(Action::class), new MetaValueCaster);
+    $build = static fn (object $declaration): MetaSchema => (new MetaSchemaBuilder)->build($declaration::class);
+
+    $registry->register($build(new #[PostMeta('page')] class
+    {
+        #[Meta(showInRest: true)]
+        public string $a = '';
+    }));
+    $registry->register($build(new #[PostType('quiet')] class
+    {
+        #[Meta]
+        public string $b = '';
+    }));
+    $registry->register($build(new #[Taxonomy('loud')] class
+    {
+        #[Meta(showInRest: true)]
+        public string $c = '';
+    }));
+
+    expect($supported)->toBe([]);
+
+    $registry->register($build(new #[PostType('loud')] class
+    {
+        #[Meta(showInRest: true)]
+        public string $d = '';
+    }));
+
+    expect($supported)->toBe([['loud', 'custom-fields']]);
+});
+
+it('sanitizes a single array as a whole, and each row of a multiple one', function (): void {
+    $meta = registeredEventMeta(Conference::class);
+
+    expect(($meta['room_ids'][1]['sanitize_callback'])([1, 2]))->toBe([1, 2])
+        ->and(($meta['speakers'][1]['sanitize_callback'])('Ada'))->toBe('Ada');
 });

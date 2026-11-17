@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Pollora\Attributes\Meta;
+use Pollora\Attributes\UserMeta;
 use Pollora\Meta\Application\Services\MetaSchemaBuilder;
 use Pollora\Meta\Application\Services\MetaSchemaRepository;
 use Pollora\Meta\Domain\Enums\MetaObjectType;
@@ -74,4 +76,28 @@ it('finds the schemas an object can carry, and whether a name is declared', func
         ->and($repository->declares(MetaObjectType::Post, 'sold_out'))->toBeTrue()
         ->and($repository->declares(MetaObjectType::User, 'sold_out'))->toBeFalse()
         ->and($repository->declares(MetaObjectType::Post, 'post_title'))->toBeFalse();
+});
+
+it('checks every schema already added, not only the first', function (): void {
+    $repository = new MetaSchemaRepository;
+    $repository->add((new MetaSchemaBuilder)->build(BookGenre::class));
+    $repository->add((new MetaSchemaBuilder)->build(Event::class));
+
+    expect(fn () => $repository->add((new MetaSchemaBuilder)->build(EventExtras::class)))
+        ->toThrow(InvalidMetaDefinitionException::class, 'The meta key "capacity" of post "event" is declared twice');
+});
+
+it('accepts other keys on objects the schemas share', function (): void {
+    $repository = new MetaSchemaRepository;
+    $repository->add((new MetaSchemaBuilder)->build(MemberProfile::class));
+    $other = new #[UserMeta] class
+    {
+        #[Meta]
+        public ?string $nickname = null;
+    };
+
+    $repository->add($schema = (new MetaSchemaBuilder)->build($other::class));
+
+    expect($repository->all())->toHaveCount(2)
+        ->and($repository->forClass($other::class))->toBe($schema);
 });

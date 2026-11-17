@@ -128,3 +128,64 @@ describe('the facade service', function (): void {
             ->and($drivers->has('recording'))->toBeTrue();
     });
 });
+
+describe('the conformance check', function (): void {
+    it('names a driver that answers differently when asked twice, and stops there', function (): void {
+        $flipping = new class implements MetaUiDriver
+        {
+            public int $asked = 0;
+
+            public bool $registered = false;
+
+            public function supports(MetaDefinition $definition): bool
+            {
+                return ++$this->asked % 2 === 1;
+            }
+
+            public function register(MetaSchema $schema): void
+            {
+                $this->registered = true;
+            }
+        };
+
+        $violations = MetaUiDriverConformance::check($flipping);
+
+        expect($violations)->toHaveCount(15)
+            ->and($violations[0])->toBe('supports() answers differently for "text" when asked twice.')
+            ->and($flipping->registered)->toBeFalse();
+    });
+
+    it('names a driver that cannot register what it supports', function (): void {
+        $failing = new class implements MetaUiDriver
+        {
+            public function supports(MetaDefinition $definition): bool
+            {
+                return true;
+            }
+
+            public function register(MetaSchema $schema): void
+            {
+                throw new RuntimeException('boom');
+            }
+        };
+
+        expect(MetaUiDriverConformance::check($failing))->toBe(['register() throws for the meta it supports: boom']);
+    });
+
+    it('gives the driver the schema of every kind of meta', function (): void {
+        $driver = new FieldRecordingDriver;
+
+        expect(MetaUiDriverConformance::check($driver))->toBe([])
+            ->and($driver->fields)->not->toBe([])
+            ->and($driver->fields)->toHaveKey('text');
+    });
+
+    it('builds a driver from a class name, or says it does not exist', function (): void {
+        $container = new InstantiatingContainer;
+
+        expect($container->has(FieldRecordingDriver::class))->toBeTrue()
+            ->and($container->has('No\\Such\\Class'))->toBeFalse()
+            ->and($container->get(FieldRecordingDriver::class))->toBeInstanceOf(FieldRecordingDriver::class)
+            ->and(fn () => $container->get('No\\Such\\Class'))->toThrow(RuntimeException::class, 'No entry "No\\Such\\Class".');
+    });
+});

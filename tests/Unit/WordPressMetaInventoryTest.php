@@ -78,3 +78,51 @@ it('reads user meta without a subtype', function (): void {
 
     expect($this->queries[0][0])->toContain('SELECT m.user_id AS object_id, m.meta_value FROM wp_usermeta m WHERE m.meta_key = %s ORDER BY m.umeta_id');
 });
+
+it('asks for at least one row, whatever the limit', function (int $limit, int $expected): void {
+    $inventory = new WordPressMetaInventory;
+
+    $inventory->values(MetaObjectType::User, [], 'job_title', $limit);
+    $inventory->keys(MetaObjectType::User, [], $limit);
+
+    expect(end($this->queries[0][1]))->toBe($expected)
+        ->and(end($this->queries[1][1]))->toBe($expected);
+})->with([
+    'zero' => [0, 1],
+    'negative' => [-5, 1],
+    'one' => [1, 1],
+    'several' => [7, 7],
+]);
+
+it('does not filter on a subtype, nor join, when none is given', function (): void {
+    $inventory = new WordPressMetaInventory;
+
+    $inventory->values(MetaObjectType::Post, [], 'k', 10);
+    $inventory->values(MetaObjectType::Term, [], 'k', 10);
+    $inventory->values(MetaObjectType::Comment, [], 'k', 10);
+
+    expect($this->queries[0][0])->toBe("SELECT m.post_id AS object_id, m.meta_value FROM wp_postmeta m INNER JOIN wp_posts o ON o.ID = m.post_id WHERE m.meta_key = %s AND o.post_type <> 'revision' ORDER BY m.meta_id LIMIT %d")
+        ->and($this->queries[0][1])->toBe(['k', 10])
+        ->and($this->queries[1][0])->toBe('SELECT m.term_id AS object_id, m.meta_value FROM wp_termmeta m WHERE m.meta_key = %s ORDER BY m.meta_id LIMIT %d')
+        ->and($this->queries[1][1])->toBe(['k', 10])
+        ->and($this->queries[2][0])->toBe('SELECT m.comment_id AS object_id, m.meta_value FROM wp_commentmeta m WHERE m.meta_key = %s ORDER BY m.meta_id LIMIT %d')
+        ->and($this->queries[2][1])->toBe(['k', 10]);
+});
+
+it('reads a stored value that WordPress considers serialized despite surrounding whitespace', function (): void {
+    Functions\when('is_serialized')->alias(fn (string $value): bool => str_starts_with(trim($value), 'a:'));
+    $this->results = [(object) ['object_id' => '5', 'meta_value' => " a:1:{i:0;s:4:\"rock\";}\n"]];
+
+    $values = (new WordPressMetaInventory)->values(MetaObjectType::User, [], 'genres', 10);
+
+    expect($values)->toBe([5 => [['rock']]]);
+});
+
+it('gives the rows of an object by its integer ID', function (): void {
+    $this->results = [
+        (object) ['object_id' => '5', 'meta_value' => 'a'],
+        (object) ['object_id' => '7', 'meta_value' => null],
+    ];
+
+    expect((new WordPressMetaInventory)->values(MetaObjectType::User, [], 'k', 10))->toBe([5 => ['a'], 7 => [null]]);
+});

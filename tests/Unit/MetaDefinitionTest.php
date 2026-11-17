@@ -3,8 +3,12 @@
 declare(strict_types=1);
 
 use Pollora\Meta\Application\Services\MetaSchemaBuilder;
+use Pollora\Meta\Domain\Enums\MetaObjectType;
+use Pollora\Meta\Domain\Enums\MetaValueType;
+use Pollora\Meta\Domain\Models\MetaDefinition;
 use Pollora\Meta\Domain\Models\MetaSchema;
 use Pollora\Meta\Tests\Fixtures\Event;
+use Pollora\Meta\Tests\Fixtures\Mood;
 
 beforeEach(function (): void {
     $this->definitions = (new MetaSchemaBuilder)->build(Event::class)->definitions;
@@ -42,4 +46,29 @@ it('finds a definition by property name or by key', function (): void {
         ->and($schema->find('unknown'))->toBeNull()
         ->and($schema->isEmpty())->toBeFalse()
         ->and((new MetaSchema(Event::class, $schema->objectType, ['event'], []))->isEmpty())->toBeTrue();
+});
+
+it('types an enum without backing values as a string', function (): void {
+    $definition = new MetaDefinition('mood', 'mood', MetaValueType::Enum, Mood::class, true, null);
+
+    expect($definition->wordPressType())->toBe('string');
+});
+
+it('says which keys a meta overlaps on, by object type and subtype', function (array $first, array $second, bool $overlaps): void {
+    $schema = static fn (MetaObjectType $type, array $subtypes): MetaSchema => new MetaSchema('A', $type, $subtypes, []);
+
+    expect($schema(...$first)->overlaps($schema(...$second)))->toBe($overlaps);
+})->with(function (): array {
+    $post = MetaObjectType::Post;
+    $term = MetaObjectType::Term;
+
+    return [
+        'another object type, same subtypes' => [[$post, ['a']], [$term, ['a']], false],
+        'another object type, no subtypes' => [[$post, []], [$term, []], false],
+        'a shared subtype' => [[$post, ['a', 'b']], [$post, ['b']], true],
+        'no shared subtype' => [[$post, ['a']], [$post, ['b']], false],
+        'every object, then a subtype' => [[$post, []], [$post, ['b']], true],
+        'a subtype, then every object' => [[$post, ['a']], [$post, []], true],
+        'every object, both' => [[$post, []], [$post, []], true],
+    ];
 });

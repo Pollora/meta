@@ -58,3 +58,24 @@ it('reads an unreadable stored value as the default in production, and logs it',
 
     expect(metaAccessor(storeReturning('many'), logger: $logger)->of(Event::class, 42)->capacity)->toBe(0);
 });
+
+it('gives the discovered schema itself, not a rebuilt one', function (): void {
+    $schemas = new MetaSchemaRepository;
+    $schemas->add($schema = (new MetaSchemaBuilder)->build(BookGenre::class));
+
+    expect(metaAccessor(storeReturning(null), schemas: $schemas)->schema(BookGenre::class))->toBe($schema);
+});
+
+it('finds the schemas of an object from an enum or its name', function (): void {
+    $schemas = new MetaSchemaRepository;
+    $schemas->add($schema = (new MetaSchemaBuilder)->build(Event::class));
+    $accessor = metaAccessor(storeReturning(null), schemas: $schemas);
+
+    expect($accessor->schemaFor(MetaObjectType::Post, 'event'))->toBe([$schema])
+        ->and($accessor->schemaFor('post', 'event'))->toBe([$schema])
+        ->and($accessor->schemaFor('term', 'event'))->toBe([]);
+});
+
+it('reads an unreadable stored value as the default without a logger', function (): void {
+    expect(metaAccessor(storeReturning('many'))->of(Event::class, 42)->capacity)->toBe(0);
+});
