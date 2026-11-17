@@ -11,9 +11,12 @@ use Pollora\Meta\Domain\Enums\MetaObjectType;
 use Pollora\Meta\Domain\Enums\MetaValueType;
 use Pollora\Meta\Domain\Exceptions\InvalidMetaDefinitionException;
 use Pollora\Meta\Domain\Models\MetaSchema;
+use Pollora\Meta\Tests\Fixtures\AbstractTyped;
+use Pollora\Meta\Tests\Fixtures\AliasedItems;
 use Pollora\Meta\Tests\Fixtures\ArticleExtras;
 use Pollora\Meta\Tests\Fixtures\BookGenre;
 use Pollora\Meta\Tests\Fixtures\CategoryExtras;
+use Pollora\Meta\Tests\Fixtures\DocblockItems;
 use Pollora\Meta\Tests\Fixtures\Event;
 use Pollora\Meta\Tests\Fixtures\EventStatus;
 use Pollora\Meta\Tests\Fixtures\InvalidArray;
@@ -27,8 +30,13 @@ use Pollora\Meta\Tests\Fixtures\InvalidUnion;
 use Pollora\Meta\Tests\Fixtures\InvalidUntyped;
 use Pollora\Meta\Tests\Fixtures\MemberProfile;
 use Pollora\Meta\Tests\Fixtures\NotADeclaration;
+use Pollora\Meta\Tests\Fixtures\NullablePartOwner;
+use Pollora\Meta\Tests\Fixtures\ObjectTyped;
 use Pollora\Meta\Tests\Fixtures\Priority;
+use Pollora\Meta\Tests\Fixtures\PromotedPartOwner;
+use Pollora\Meta\Tests\Fixtures\RequiredPartOwner;
 use Pollora\Meta\Tests\Fixtures\ReviewMeta;
+use Pollora\Meta\Tests\Fixtures\UntypedPartOwner;
 use Pollora\Meta\Tests\Fixtures\UserRevisions;
 
 require_once dirname(__DIR__).'/Fixtures/Invalid.php';
@@ -156,4 +164,68 @@ it('marks an attachment ID and a meta anyone may see', function (): void {
         ->and($definitions['avatarId']->control)->toBe(Control::Media)
         ->and($definitions['phone']->media)->toBeFalse()
         ->and($definitions['phone']->public)->toBeFalse();
+});
+
+require_once dirname(__DIR__).'/Fixtures/BuilderEdges.php';
+
+describe('the type of an array item', function (): void {
+    it('is read from the docblock, in each notation', function (string $property, MetaValueType $type): void {
+        $definition = (new MetaSchemaBuilder)->build(DocblockItems::class)->definitions[$property];
+
+        expect($definition->item()->valueType)->toBe($type);
+    })->with([
+        'list<int>' => ['fromList', MetaValueType::Integer],
+        'array<bool>' => ['fromArray', MetaValueType::Boolean],
+        'array<int, float>' => ['fromIndexedArray', MetaValueType::Number],
+        'string[]' => ['fromBrackets', MetaValueType::String],
+    ]);
+
+    it('accepts each alias, and a class name with a leading backslash', function (string $property, MetaValueType $type, ?string $class): void {
+        $item = (new MetaSchemaBuilder)->build(AliasedItems::class)->definitions[$property]->item();
+
+        expect($item->valueType)->toBe($type)
+            ->and($item->valueClass)->toBe($class)
+            ->and($item->nullable)->toBeFalse()
+            ->and($item->default)->toBeNull();
+    })->with([
+        'string' => ['string', MetaValueType::String, null],
+        'int' => ['int', MetaValueType::Integer, null],
+        'integer' => ['integer', MetaValueType::Integer, null],
+        'float' => ['float', MetaValueType::Number, null],
+        'bool' => ['bool', MetaValueType::Boolean, null],
+        'boolean' => ['boolean', MetaValueType::Boolean, null],
+        'a class with a leading backslash' => ['slashed', MetaValueType::Enum, EventStatus::class],
+    ]);
+
+    it('keeps the rules of the meta as a list', function (): void {
+        $definition = (new MetaSchemaBuilder)->build(AliasedItems::class)->definitions['ruled'];
+
+        expect($definition->rules)->toBe(['max:5', 'min:1']);
+    });
+});
+
+describe('a data object', function (): void {
+    it('refuses a type that is neither a class nor a scalar', function (string $class, string $message): void {
+        expect(fn (): MetaSchema => (new MetaSchemaBuilder)->build($class))
+            ->toThrow(InvalidMetaDefinitionException::class, $message);
+    })->with([
+        'object' => [ObjectTyped::class, 'the type object is not supported'],
+        'an abstract class' => [AbstractTyped::class, 'the type Pollora\Meta\Tests\Fixtures\AbstractNote is not supported'],
+        'an untyped property' => [UntypedPartOwner::class, 'Pollora\Meta\Tests\Fixtures\UntypedPart::$loose needs a single type.'],
+        'a property without default' => [RequiredPartOwner::class, 'Pollora\Meta\Tests\Fixtures\RequiredPart::$label needs a default value or a nullable type.'],
+    ]);
+
+    it('accepts a nullable property without default', function (): void {
+        $part = (new MetaSchemaBuilder)->build(NullablePartOwner::class)->definitions['part'];
+
+        expect($part->properties['label']->nullable)->toBeTrue()
+            ->and($part->properties['label']->default)->toBeNull();
+    });
+
+    it('takes the defaults of its promoted constructor parameters only', function (): void {
+        $properties = (new MetaSchemaBuilder)->build(PromotedPartOwner::class)->definitions['part']->properties;
+
+        expect($properties['size']->default)->toBe(3)
+            ->and($properties['label']->default)->toBeNull();
+    });
 });

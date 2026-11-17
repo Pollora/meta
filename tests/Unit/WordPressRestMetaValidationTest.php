@@ -8,6 +8,9 @@ use Pollora\Meta\Domain\Services\MetaValueCaster;
 use Pollora\Meta\Infrastructure\Adapters\WordPressRestMetaValidation;
 use Pollora\Meta\Tests\Fixtures\MemberProfile;
 use Pollora\Meta\Tests\Fixtures\RatedEvent;
+use Pollora\Meta\Tests\Fixtures\RatedGenre;
+use Pollora\Meta\Tests\Fixtures\RatedMember;
+use Pollora\Meta\Tests\Fixtures\RatedReview;
 
 require_once dirname(__DIR__).'/Fixtures/validator.php';
 
@@ -72,4 +75,62 @@ it('keeps an error an earlier filter returned', function (): void {
     $error = new WP_Error;
 
     expect($this->validation->validate($error, $this->posts, restMetaWrite(['capacity' => 6000])))->toBe($error);
+});
+
+require_once dirname(__DIR__).'/Fixtures/RatedOthers.php';
+
+it('answers a 400 naming each meta that broke a rule', function (): void {
+    $error = $this->validation->validate(null, $this->posts, restMetaWrite(['capacity' => 6000, 'free' => -5, 'contact' => 'nobody']));
+
+    expect($error)->toBeInstanceOf(WP_Error::class)
+        ->and($error->code)->toBe('rest_invalid_param')
+        ->and($error->message)->toBe('Invalid parameter(s): meta')
+        ->and($error->data)->toBe([
+            'status' => 400,
+            'params' => [
+                'meta.capacity' => 'The Capacity field must not be greater than 5000.',
+                'meta.contact' => 'The contact field must be a valid email address.',
+            ],
+        ]);
+});
+
+it('checks a meta that follows one the request leaves out', function (): void {
+    $error = $this->validation->validate(null, $this->posts, restMetaWrite(['contact' => 'nobody']));
+
+    expect($error->data['params'])->toBe(['meta.contact' => 'The contact field must be a valid email address.']);
+});
+
+describe('on each core route', function (): void {
+    beforeEach(function (): void {
+        $schemas = new MetaSchemaRepository;
+
+        foreach ([RatedGenre::class, RatedMember::class, RatedReview::class] as $class) {
+            $schemas->add((new MetaSchemaBuilder)->build($class));
+        }
+
+        $this->validation = new WordPressRestMetaValidation($schemas, new MetaValueCaster, metaValidator());
+    });
+
+    it('validates the meta of a taxonomy, a user and a comment', function (object $controller, string $key, string $message): void {
+        $error = $this->validation->validate(null, ['callback' => [$controller, 'update_item']], restMetaWrite([$key => 99]));
+
+        expect($error)->toBeInstanceOf(WP_Error::class)
+            ->and($error->data['params'])->toBe(["meta.{$key}" => $message]);
+    })->with([
+        'a term' => [fn () => new WP_REST_Terms_Controller('rated_genre'), 'stars', 'The stars field must not be greater than 3.'],
+        'a user' => [fn () => new WP_REST_Users_Controller, 'level', 'The level field must not be greater than 10.'],
+        'a comment' => [fn () => new WP_REST_Comments_Controller, 'score', 'The score field must not be greater than 5.'],
+    ]);
+
+    it('leaves alone a route it does not know, and a taxonomy that declares nothing', function (mixed $callback, string $key): void {
+        expect($this->validation->validate(null, ['callback' => $callback], restMetaWrite([$key => 99])))->toBeNull();
+    })->with([
+        'unknown, user key' => ['some_function', 'level'],
+        'unknown, comment key' => ['some_function', 'score'],
+        'another object, user key' => [[new stdClass, 'update_item'], 'level'],
+        'another object, comment key' => [[new stdClass, 'update_item'], 'score'],
+        'a user route, comment key' => [[new WP_REST_Users_Controller, 'update_item'], 'score'],
+        'a comment route, user key' => [[new WP_REST_Comments_Controller, 'update_item'], 'level'],
+        'another taxonomy' => [[new WP_REST_Terms_Controller('other'), 'update_item'], 'stars'],
+    ]);
 });

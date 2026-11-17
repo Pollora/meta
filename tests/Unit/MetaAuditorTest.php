@@ -44,3 +44,25 @@ it('lists the keys stored on a declared post type that no #[Meta] declares', fun
     // "post" is targeted by #[PostMeta], not declared by the project: its other keys belong to others
     expect($findings)->toBe([['owner' => 'post "event"', 'key' => 'old_capacity', 'objects' => 2]]);
 });
+
+it('samples the objects of a finding, at most five', function (): void {
+    $rows = [];
+
+    foreach (range(1, 7) as $id) {
+        $rows[$id] = ['capacity' => ['many']];
+    }
+
+    $finding = ($this->auditor)(['post' => ['event' => $rows]])->unreadable(100)[0];
+
+    expect($finding['unreadable'])->toBe(7)
+        ->and($finding['objects'])->toBe([1, 2, 3, 4, 5]);
+});
+
+it('looks at the declared post types after a schema that declares none', function (): void {
+    $schemas = new MetaSchemaRepository;
+    $schemas->add((new MetaSchemaBuilder)->build(ArticleExtras::class));
+    $schemas->add((new MetaSchemaBuilder)->build(Event::class));
+    $auditor = new MetaAuditor($schemas, new ArrayMetaInventory(['post' => ['event' => [10 => ['old_capacity' => ['200']]]]]), new MetaValueCaster);
+
+    expect($auditor->undeclared(100))->toBe([['owner' => 'post "event"', 'key' => 'old_capacity', 'objects' => 1]]);
+});
