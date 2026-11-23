@@ -61,6 +61,7 @@
             "@lint:check"
         ],
         "test:unit": "pest",
+        "test:integration": "pest --test-directory=tests/Integration -c phpunit.integration.xml",
         "test:coverage": "pest --coverage",
         "phpstan": "phpstan analyse",
         "phpstan:ci": "phpstan analyse --no-progress",
