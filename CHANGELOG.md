@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-23
+
 ### Fixed
 
 - A meta declared with `#[Meta(revisions: true)]` on a post type that does not support `revisions` was silently not registered (`register_meta()` returns `false`, and its `_doing_it_wrong()` notice is hidden without `WP_DEBUG`). Registration now throws an `InvalidMetaDefinitionException` naming the class, the property and the post type, before any meta of the declaration is registered (#32)
