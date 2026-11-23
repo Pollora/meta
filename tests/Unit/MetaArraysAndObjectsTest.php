@@ -171,6 +171,7 @@ describe('registering', function (): void {
         $calls = [];
         Functions\when('did_action')->justReturn(1);
         Functions\when('add_post_type_support')->justReturn();
+        Functions\when('post_type_supports')->justReturn(true);
         Functions\when('sanitize_text_field')->alias(fn (string $value): string => strip_tags($value));
         Functions\when('register_meta')->alias(function (string $objectType, string $key, array $args) use (&$calls): bool {
             $calls[$key] = $args;

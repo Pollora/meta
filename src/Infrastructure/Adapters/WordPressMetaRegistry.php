@@ -8,6 +8,7 @@ use Pollora\Hook\Domain\Contract\Action;
 use Pollora\Meta\Domain\Contracts\MetaRegistryInterface;
 use Pollora\Meta\Domain\Enums\MetaObjectType;
 use Pollora\Meta\Domain\Enums\MetaValueType;
+use Pollora\Meta\Domain\Exceptions\InvalidMetaDefinitionException;
 use Pollora\Meta\Domain\Models\MetaDefinition;
 use Pollora\Meta\Domain\Models\MetaSchema;
 use Pollora\Meta\Domain\Services\MetaValueCaster;
@@ -49,10 +50,42 @@ final readonly class WordPressMetaRegistry implements MetaRegistryInterface
         }
 
         // An empty subtype registers the meta for every object of the type.
-        foreach ($schema->subtypes === [] ? [''] : $schema->subtypes as $subtype) {
+        $subtypes = $schema->subtypes === [] ? [''] : $schema->subtypes;
+
+        // Checked first: a refused declaration registers none of its meta.
+        foreach ($subtypes as $subtype) {
+            foreach ($schema->definitions as $definition) {
+                $this->assertRevisionsSupported($schema, $definition, $subtype);
+            }
+        }
+
+        foreach ($subtypes as $subtype) {
             foreach ($schema->definitions as $definition) {
                 \register_meta($schema->objectType->value, $definition->key, $this->argumentsFor($schema, $definition, $subtype));
             }
+        }
+    }
+
+    /**
+     * Refuses a meta that asks for revisions on a post type that does not support them.
+     *
+     * `register_meta()` returns false for it (with a `_doing_it_wrong()` notice that is silent without WP_DEBUG) and the
+     * meta is never registered. Checked here, when the post types are registered, as WordPress checks it.
+     *
+     * @throws InvalidMetaDefinitionException
+     */
+    private function assertRevisionsSupported(MetaSchema $schema, MetaDefinition $definition, string $subtype): void
+    {
+        if (! $definition->revisions || $schema->objectType !== MetaObjectType::Post || $subtype === '') {
+            return;
+        }
+
+        if (! \post_type_supports($subtype, 'revisions')) {
+            throw InvalidMetaDefinitionException::forProperty($schema->declaringClass, $definition->property, sprintf(
+                'revisions: true needs the post type "%s" to support "revisions", and it does not: WordPress would not register the meta "%s". Add "revisions" to the supports of the post type, or drop revisions: true.',
+                $subtype,
+                $definition->key
+            ));
         }
     }
 

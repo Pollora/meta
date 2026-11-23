@@ -9,6 +9,7 @@ use Pollora\Meta\Application\Services\MetaAuditor;
 use Pollora\Meta\Application\Services\MetaSchemaBuilder;
 use Pollora\Meta\Application\Services\MetaSchemaRepository;
 use Pollora\Meta\Domain\Enums\MetaObjectType;
+use Pollora\Meta\Domain\Exceptions\InvalidMetaDefinitionException;
 use Pollora\Meta\Domain\Services\MetaValueCaster;
 use Pollora\Meta\Infrastructure\Adapters\WordPressMetaInventory;
 use Pollora\Meta\Infrastructure\Adapters\WordPressMetaRegistry;
@@ -20,6 +21,7 @@ use Pollora\Meta\Tests\Fixtures\Event;
 use Pollora\Meta\Tests\Fixtures\EventStatus;
 use Pollora\Meta\Tests\Fixtures\MemberProfile;
 use Pollora\Meta\Tests\Fixtures\RatedEvent;
+use Pollora\Meta\Tests\Fixtures\RevisionsOnPlainType;
 use Spatie\StructureDiscoverer\Data\DiscoveredClass;
 
 require_once ABSPATH.'wp-admin/includes/user.php';
@@ -295,4 +297,20 @@ it('reads the meta tables with the SQL of the audit, on MySQL', function (): voi
     expect(array_column($unreadable, 'key'))->toContain('capacity')
         ->and($unreadable[array_search('capacity', array_column($unreadable, 'key'), true)]['objects'])->toBe([$second])
         ->and(array_column($undeclared, 'key'))->toContain('legacy_field');
+});
+
+it('refuses revisions: true on a post type without revisions support instead of dropping the meta silently', function (): void {
+    register_post_type('plain_type', ['public' => true, 'supports' => ['title']]);
+
+    try {
+        // WordPress itself returns false and registers nothing: the failure used to be a notice that WP_DEBUG hides.
+        expect(register_meta('post', 'summary', ['object_subtype' => 'plain_type', 'revisions_enabled' => true]))->toBeFalse();
+
+        expect(fn () => registerTypedMeta($this, RevisionsOnPlainType::class))
+            ->toThrow(InvalidMetaDefinitionException::class, 'RevisionsOnPlainType::$summary: revisions: true needs the post type "plain_type" to support "revisions"')
+            ->and(get_registered_meta_keys('post', 'plain_type'))->toBe([]);
+    } finally {
+        unregister_post_type('plain_type');
+        $this->notices = [];
+    }
 });

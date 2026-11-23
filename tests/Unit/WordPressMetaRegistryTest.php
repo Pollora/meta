@@ -9,6 +9,7 @@ use Pollora\Attributes\PostType;
 use Pollora\Attributes\Taxonomy;
 use Pollora\Hook\Domain\Contract\Action;
 use Pollora\Meta\Application\Services\MetaSchemaBuilder;
+use Pollora\Meta\Domain\Exceptions\InvalidMetaDefinitionException;
 use Pollora\Meta\Domain\Models\MetaSchema;
 use Pollora\Meta\Domain\Services\MetaValueCaster;
 use Pollora\Meta\Infrastructure\Adapters\WordPressMetaRegistry;
@@ -34,6 +35,7 @@ function registeredEventMeta(string $class = Event::class): array
     $calls = [];
     Functions\when('did_action')->justReturn(1);
     Functions\when('add_post_type_support')->justReturn();
+    Functions\when('post_type_supports')->justReturn(true);
     Functions\when('register_meta')->alias(function (string $objectType, string $key, array $args) use (&$calls): bool {
         $calls[$key] = [$objectType, $args];
 
@@ -49,6 +51,7 @@ function registeredEventMeta(string $class = Event::class): array
 it('waits for init, after post types and taxonomies', function (): void {
     Functions\when('did_action')->justReturn(0);
     Functions\when('add_post_type_support')->justReturn();
+    Functions\when('post_type_supports')->justReturn(true);
 
     Functions\expect('register_meta')->never();
     $action = Mockery::mock(Action::class);
@@ -125,10 +128,23 @@ it('enables revisions when asked', function (): void {
         ->and($meta['capacity'][1])->not->toHaveKey('revisions_enabled');
 });
 
+it('refuses revisions: true on a post type that does not support revisions, naming the type and the meta', function (): void {
+    Functions\when('did_action')->justReturn(1);
+    Functions\when('add_post_type_support')->justReturn();
+    Functions\when('post_type_supports')->alias(fn (string $postType, string $feature): bool => $feature !== 'revisions');
+    Functions\expect('register_meta')->never();
+
+    $register = fn () => (new WordPressMetaRegistry(Mockery::mock(Action::class), new MetaValueCaster))
+        ->register((new MetaSchemaBuilder)->build(Event::class));
+
+    expect($register)->toThrow(InvalidMetaDefinitionException::class, '#[Meta] on '.Event::class.'::$subtitle: revisions: true needs the post type "event" to support "revisions"');
+});
+
 it('registers the meta on each post type of the list, and for every user without a subtype', function (): void {
     $calls = [];
     Functions\when('did_action')->justReturn(1);
     Functions\when('add_post_type_support')->justReturn();
+    Functions\when('post_type_supports')->justReturn(true);
     Functions\when('register_meta')->alias(function (string $objectType, string $key, array $args) use (&$calls): bool {
         $calls[] = [$objectType, $key, $args['object_subtype']];
 
@@ -153,6 +169,7 @@ it('adds custom-fields to a declared post type exposing a meta in REST, and to n
     Functions\when('did_action')->justReturn(1);
     Functions\when('register_meta')->justReturn(true);
     Functions\expect('add_post_type_support')->once()->with('event', 'custom-fields');
+    Functions\when('post_type_supports')->justReturn(true);
     $registry = new WordPressMetaRegistry(Mockery::mock(Action::class), new MetaValueCaster);
 
     $registry->register((new MetaSchemaBuilder)->build(Event::class));

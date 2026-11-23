@@ -24,6 +24,7 @@ it('declares, registers and reads typed meta with nothing but its own classes', 
     $stored = [];
     Functions\when('did_action')->justReturn(1);
     Functions\when('add_post_type_support')->justReturn();
+    Functions\when('post_type_supports')->justReturn(true);
     Functions\when('register_meta')->justReturn(true);
     Functions\when('wp_slash')->alias(fn (mixed $value): mixed => $value);
     Functions\when('get_metadata_raw')->alias(function (string $type, int $id, string $key) use (&$stored): mixed {
