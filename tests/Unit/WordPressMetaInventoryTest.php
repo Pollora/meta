@@ -6,12 +6,17 @@ use Brain\Monkey\Functions;
 use Pollora\Meta\Domain\Enums\MetaObjectType;
 use Pollora\Meta\Infrastructure\Adapters\WordPressMetaInventory;
 
+// WordPress is not loaded in the unit suite: stand in for its database class so that a fake can extend it.
+if (! class_exists('wpdb')) {
+    class wpdb {}
+}
+
 beforeEach(function (): void {
     $this->previousWpdb = $GLOBALS['wpdb'] ?? null;
     $this->queries = [];
     $this->results = [];
     // Only what the adapter uses: table names, prepare() and get_results()
-    $GLOBALS['wpdb'] = new class($this)
+    $GLOBALS['wpdb'] = new class($this) extends wpdb
     {
         public string $postmeta = 'wp_postmeta';
 
@@ -125,4 +130,10 @@ it('gives the rows of an object by its integer ID', function (): void {
     ];
 
     expect((new WordPressMetaInventory)->values(MetaObjectType::User, [], 'k', 10))->toBe([5 => ['a'], 7 => [null]]);
+});
+
+it('refuses to read the meta tables when WordPress has not created $wpdb', function (): void {
+    $GLOBALS['wpdb'] = null;
+
+    expect(fn (): array => (new WordPressMetaInventory)->values(MetaObjectType::User, [], 'k', 10))->toThrow(LogicException::class, '$wpdb');
 });

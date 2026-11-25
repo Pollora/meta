@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pollora\Meta\Infrastructure\Adapters;
 
+use LogicException;
 use Pollora\Meta\Domain\Contracts\MetaInventoryInterface;
 use Pollora\Meta\Domain\Enums\MetaObjectType;
 
@@ -58,11 +59,10 @@ final readonly class WordPressMetaInventory implements MetaInventoryInterface
     /**
      * The tables to read and the condition on the subtypes.
      *
-     * @param  \wpdb  $wpdb
      * @param  list<string>  $subtypes
      * @return array{0: string, 1: string, 2: list<string>}
      */
-    private function scope(object $wpdb, MetaObjectType $objectType, array $subtypes): array
+    private function scope(\wpdb $wpdb, MetaObjectType $objectType, array $subtypes): array
     {
         $placeholders = implode(', ', array_fill(0, count($subtypes), '%s'));
 
@@ -105,13 +105,14 @@ final readonly class WordPressMetaInventory implements MetaInventoryInterface
     }
 
     /**
-     * WordPress's database object, typed loosely: only its table names,
-     * prepare() and get_results() are used.
+     * WordPress's database object: only its table names, prepare() and get_results() are used.
      *
-     * @return \wpdb
+     * @throws LogicException When WordPress has not created $wpdb
      */
-    private function wpdb(): object
+    private function wpdb(): \wpdb
     {
-        return $GLOBALS['wpdb'];
+        $wpdb = $GLOBALS['wpdb'] ?? null;
+
+        return $wpdb instanceof \wpdb ? $wpdb : throw new LogicException('WordPress has not created $wpdb: the meta tables cannot be read.');
     }
 }

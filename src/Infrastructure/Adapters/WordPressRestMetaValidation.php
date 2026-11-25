@@ -47,7 +47,8 @@ final readonly class WordPressRestMetaValidation
             return $response;
         }
 
-        [$objectType, $subtype] = $this->objectOf($handler['callback'][0] ?? null);
+        $callback = $handler['callback'] ?? null;
+        [$objectType, $subtype] = $this->objectOf(is_array($callback) ? ($callback[0] ?? null) : null);
 
         if (! $objectType instanceof MetaObjectType) {
             return $response;

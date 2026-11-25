@@ -17,12 +17,14 @@ use Pollora\Meta\Tests\Fixtures\ArticleExtras;
 use Pollora\Meta\Tests\Fixtures\BookGenre;
 use Pollora\Meta\Tests\Fixtures\Conference;
 use Pollora\Meta\Tests\Fixtures\Event;
+use Pollora\Meta\Tests\Fixtures\LateSanitizers;
 use Pollora\Meta\Tests\Fixtures\MemberProfile;
 use Pollora\Meta\Tests\Fixtures\ReviewMeta;
 
 // A callable string must name an existing function: define it here so this file passes alone, in any order.
 beforeEach(function (): void {
     Functions\when('sanitize_text_field')->alias(fn (string $value): string => strip_tags($value));
+    Functions\when('wp_kses_post')->returnArg();
 });
 
 /**
@@ -96,6 +98,26 @@ it('passes label and description only when given', function (): void {
 
 it('leaves out the default of a nullable meta', function (): void {
     expect(registeredEventMeta()['starts_at'][1])->not->toHaveKey('default');
+});
+
+it('resolves a declared sanitize callback that is not callable yet when a value is sanitized', function (): void {
+    $meta = registeredEventMeta(LateSanitizers::class);
+
+    if (! function_exists('pollora_meta_defined_late')) {
+        function pollora_meta_defined_late(string $value): string
+        {
+            return strtoupper($value);
+        }
+    }
+
+    expect($meta['late'][1]['sanitize_callback'])->toBeInstanceOf(Closure::class)
+        ->and(($meta['late'][1]['sanitize_callback'])('ok'))->toBe('OK');
+});
+
+it('fails with a named exception when a declared sanitize callback never becomes callable', function (): void {
+    $sanitize = registeredEventMeta(LateSanitizers::class)['never'][1]['sanitize_callback'];
+
+    expect(fn (): mixed => $sanitize('x'))->toThrow(InvalidMetaDefinitionException::class, LateSanitizers::class.'::$never: sanitize: is not callable');
 });
 
 it('sanitizes strings with sanitize_text_field() and other types with the caster', function (): void {
