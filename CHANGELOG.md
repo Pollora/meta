@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Reading a string-backed enum meta from a boolean or a float (a JSON value sent through REST, or written by `update_post_meta()`) raised a `TypeError` from `BackedEnum::tryFrom()` instead of reading as unreadable: `sanitize()` (the `sanitize_callback`) did not empty the value and the REST write failed with a 500. The value now reads as unreadable: `sanitize()` empties it, `toPhp()` throws `InvalidMetaValueException`, like any other value that is not a case. A whole number still reads as its digits
+
 ## [0.1.3] - 2026-11-23
 
 ### Fixed

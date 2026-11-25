@@ -303,14 +303,13 @@ final class MetaValueCaster
         $enum = $definition->valueClass;
 
         if ($definition->wordPressType() === 'integer') {
-            $raw = $this->readInteger($raw);
-
-            if ($raw === null) {
-                return null;
-            }
+            $case = $this->readInteger($raw);
+        } else {
+            // A string-backed enum reads a string, or a number as its digits; a bool or a float is not a case.
+            $case = is_string($raw) ? $raw : (is_int($raw) ? (string) $raw : null);
         }
 
-        return $enum::tryFrom($raw);
+        return $case === null ? null : $enum::tryFrom($case);
     }
 
     private function formatDate(DateTimeInterface $date): string

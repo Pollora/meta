@@ -76,6 +76,9 @@ describe('toPhp()', function (): void {
         'number for a date' => ['startsAt', 12],
         'unknown enum case' => ['status', 'archived'],
         'array for an enum' => ['status', ['draft']],
+        'bool for a string enum' => ['status', true],
+        'float for a string enum' => ['status', 1.5],
+        'number for a string enum' => ['status', 3],
         'text for an int enum' => ['priority', 'high'],
         'unknown int enum case' => ['priority', '9'],
     ]);
@@ -160,6 +163,8 @@ describe('sanitize()', function (): void {
         'text for an int' => ['capacity', 'many'],
         'unknown enum case' => ['status', 'archived'],
         'wrong enum' => ['status', Priority::Low],
+        'bool for a string enum' => ['status', true],
+        'float for a string enum' => ['status', 1.5],
         'date for an int' => ['capacity', new DateTimeImmutable],
     ]);
 });
