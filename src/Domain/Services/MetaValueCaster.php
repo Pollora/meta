@@ -76,7 +76,7 @@ final class MetaValueCaster
 
         if ($definition->valueType === MetaValueType::ArrayOf && ! $definition->single) {
             return is_array($value)
-                ? array_values(array_map(fn (mixed $item): string => (string) $this->toStorage($definition->item(), $item), $value))
+                ? array_values(array_map(fn (mixed $item): string => $this->toRow($definition, $item), $value))
                 : throw InvalidMetaValueException::forWrite($definition, $value);
         }
 
@@ -95,6 +95,18 @@ final class MetaValueCaster
         };
 
         return $stored ?? throw InvalidMetaValueException::forWrite($definition, $value);
+    }
+
+    /**
+     * One row of a non-single array: the stored string of an item.
+     *
+     * @throws InvalidMetaValueException When the item is not stored as a string (an array or an object item, which a definition built by MetaSchemaBuilder never has)
+     */
+    private function toRow(MetaDefinition $definition, mixed $item): string
+    {
+        $row = $this->toStorage($definition->item(), $item);
+
+        return is_string($row) ? $row : throw InvalidMetaValueException::forWrite($definition, $item);
     }
 
     /**
