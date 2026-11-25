@@ -6,6 +6,7 @@ namespace Pollora\Meta\Application\Services;
 
 use BackedEnum;
 use DateTimeInterface;
+use LogicException;
 use Pollora\Attributes\CommentMeta;
 use Pollora\Attributes\Meta;
 use Pollora\Attributes\PostMeta;
@@ -113,7 +114,7 @@ final class MetaSchemaBuilder
         }
 
         $items = $valueType === MetaValueType::ArrayOf ? $this->buildItems($class, $property, $meta) : null;
-        $properties = $valueType === MetaValueType::DataObject ? $this->buildProperties($class, $name, (string) $valueClass) : [];
+        $properties = $valueType === MetaValueType::DataObject ? $this->buildProperties($class, $name, $valueClass) : [];
 
         $key = $meta->resolveKey($name);
 
@@ -250,7 +251,7 @@ final class MetaSchemaBuilder
             valueClass: $valueClass,
             nullable: false,
             default: null,
-            properties: $valueType === MetaValueType::DataObject ? $this->buildProperties($class, $name, (string) $valueClass) : [],
+            properties: $valueType === MetaValueType::DataObject ? $this->buildProperties($class, $name, $valueClass) : [],
         );
     }
 
@@ -267,12 +268,12 @@ final class MetaSchemaBuilder
      * The properties of a data object: public typed properties of a scalar, date
      * or enum type, each with a default or nullable.
      *
-     * @param  class-string|string  $objectClass
+     * @param  class-string|null  $objectClass  The class of the object meta; it always has one.
      * @return array<string, MetaDefinition>
      */
-    private function buildProperties(string $class, string $name, string $objectClass): array
+    private function buildProperties(string $class, string $name, ?string $objectClass): array
     {
-        $reflection = new ReflectionClass($objectClass);
+        $reflection = new ReflectionClass($objectClass ?? throw new LogicException(sprintf('The object meta "%s" of %s has no class.', $name, $class)));
         $defaults = [];
 
         foreach ($reflection->getConstructor()?->getParameters() ?? [] as $parameter) {

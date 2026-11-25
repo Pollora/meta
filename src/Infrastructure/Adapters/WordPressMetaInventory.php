@@ -21,7 +21,7 @@ final readonly class WordPressMetaInventory implements MetaInventoryInterface
 
         /** @var list<object{object_id: string, meta_value: string|null}> $rows */
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT m.{$this->column($objectType)} AS object_id, m.meta_value FROM {$from} WHERE m.meta_key = %s{$where} ORDER BY m.{$this->idColumn($objectType)} LIMIT %d",
+            "SELECT m.{$this->column($objectType)} AS object_id, m.meta_value FROM {$from} WHERE m.meta_key = %s{$where} ORDER BY m.{$this->idColumn($objectType)} LIMIT %d", // @phpstan-ignore argument.type (the interpolated parts are $wpdb table names and column names from a closed enum, never request input; every value is bound with %s or %d)
             ...[$key, ...$params, max(1, $limit)]
         ));
 
@@ -42,7 +42,7 @@ final readonly class WordPressMetaInventory implements MetaInventoryInterface
 
         /** @var list<object{meta_key: string, objects: string}> $rows */
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT m.meta_key, COUNT(DISTINCT m.{$column}) AS objects FROM {$from} WHERE m.meta_key NOT LIKE %s{$where} GROUP BY m.meta_key ORDER BY objects DESC, m.meta_key LIMIT %d",
+            "SELECT m.meta_key, COUNT(DISTINCT m.{$column}) AS objects FROM {$from} WHERE m.meta_key NOT LIKE %s{$where} GROUP BY m.meta_key ORDER BY objects DESC, m.meta_key LIMIT %d", // @phpstan-ignore argument.type (the interpolated parts are $wpdb table names and column names from a closed enum, never request input; every value is bound with %s or %d)
             ...['\_%', ...$params, max(1, $limit)]
         ));
 
@@ -58,6 +58,7 @@ final readonly class WordPressMetaInventory implements MetaInventoryInterface
     /**
      * The tables to read and the condition on the subtypes.
      *
+     * @param  \wpdb  $wpdb
      * @param  list<string>  $subtypes
      * @return array{0: string, 1: string, 2: list<string>}
      */

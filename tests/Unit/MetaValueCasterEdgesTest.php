@@ -35,6 +35,13 @@ describe('toStorage() of a non-single array', function (): void {
         expect($stored)->toBe(['1', '2']);
     });
 
+    it('refuses an item that is itself an array, which is not one row', function (): void {
+        $inner = new MetaDefinition('rooms', 'rooms', MetaValueType::ArrayOf, null, false, [], items: new MetaDefinition('rooms', 'rooms', MetaValueType::Integer, null, false, null));
+        $rooms = new MetaDefinition('rooms', 'rooms', MetaValueType::ArrayOf, null, false, [], single: false, items: $inner);
+
+        expect(fn () => $this->caster->toStorage($rooms, [[1, 2]]))->toThrow(InvalidMetaValueException::class);
+    });
+
     it('refuses what is not an array', function (): void {
         expect(fn () => $this->caster->toStorage($this->conference['speakers'], 'Ada'))
             ->toThrow(InvalidMetaValueException::class, 'The meta "speakers" expects');
