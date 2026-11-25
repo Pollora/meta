@@ -63,6 +63,7 @@ final class EveryMetaKind
     #[Meta(single: false)]
     public array $rows = [];
 
+    /** @var list<int> */
     #[Meta(items: 'int')]
     public array $list = [];
 }
