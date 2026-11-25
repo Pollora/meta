@@ -10,6 +10,7 @@ use Pollora\Meta\Domain\Exceptions\MetaValidationException;
 use Pollora\Meta\Domain\Models\MetaDefinition;
 use Pollora\Meta\Domain\Models\MetaRecord;
 use Pollora\Meta\Domain\Services\MetaValueCaster;
+use Pollora\Meta\Tests\Fixtures\Conference;
 use Pollora\Meta\Tests\Fixtures\Event;
 use Pollora\Meta\Tests\Fixtures\EventStatus;
 use Pollora\Meta\Tests\Fixtures\RatedEvent;
@@ -181,4 +182,13 @@ it('checks the rules of a meta on write, and keeps nothing pending when one fail
     $record->set('capacity', 300)->set('contact', null)->save();
 
     expect($store->stored)->toBe(['capacity' => '300']);
+});
+
+it('refuses to write a row of a non-single meta that is not a string', function (): void {
+    $store = memoryMetaStore();
+    $record = new MetaRecord((new MetaSchemaBuilder)->build(Conference::class), 42, $store, new MetaValueCaster, fn (): mixed => null);
+    // set() only ever queues strings: break the invariant the way no caller can, to prove save() does not trust it.
+    (new ReflectionProperty($record, 'pending'))->setValue($record, ['speakers' => ['Ada', ['Grace']]]);
+
+    expect(fn (): MetaRecord => $record->save())->toThrow(LogicException::class, 'A row of the non-single meta "speakers" is not a string.');
 });

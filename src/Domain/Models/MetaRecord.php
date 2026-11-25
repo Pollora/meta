@@ -6,6 +6,7 @@ namespace Pollora\Meta\Domain\Models;
 
 use Closure;
 use InvalidArgumentException;
+use LogicException;
 use Pollora\Meta\Domain\Contracts\MetaStoreInterface;
 use Pollora\Meta\Domain\Contracts\MetaValidatorInterface;
 use Pollora\Meta\Domain\Exceptions\InvalidMetaValueException;
@@ -125,7 +126,7 @@ final class MetaRecord
 
             match (true) {
                 $stored === null => $this->store->delete($this->schema->objectType, $this->objectId, $definition->key),
-                ! $definition->single && is_array($stored) => $this->store->replaceAll($this->schema->objectType, $this->objectId, $definition->key, array_values(array_map(strval(...), $stored))),
+                ! $definition->single && is_array($stored) => $this->store->replaceAll($this->schema->objectType, $this->objectId, $definition->key, array_values(array_map(fn (mixed $row): string => is_string($row) ? $row : throw new LogicException(sprintf('A row of the non-single meta "%s" is not a string.', $definition->key)), $stored))),
                 default => $this->store->update($this->schema->objectType, $this->objectId, $definition->key, $stored),
             };
         }

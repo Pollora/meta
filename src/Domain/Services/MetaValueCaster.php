@@ -81,7 +81,9 @@ final class MetaValueCaster
         }
 
         if ($definition->isStructured()) {
-            return $this->toJson($definition, $value);
+            $json = $this->toJson($definition, $value);
+
+            return is_array($json) ? $json : throw InvalidMetaValueException::forWrite($definition, $value);
         }
 
         $stored = match ($definition->valueType) {
