@@ -75,6 +75,17 @@ it('stores and registers the schema of each declaring class', function (): void 
         ->and($this->schemas->forClass(NoMeta::class))->toBeNull();
 });
 
+it('ignores a stored item that does not name a loadable class', function (): void {
+    $this->registry->shouldReceive('register')->once();
+    ($this->discover)(Event::class);
+    $this->discovery->getItems()->add($this->location, ['class' => 'Tests\\NoSuchClass']);
+    $this->discovery->getItems()->add($this->location, ['model' => true]);
+
+    $this->discovery->apply();
+
+    expect(array_keys($this->schemas->failures()))->toBe([]);
+});
+
 it('logs a declaration it cannot register and carries on', function (): void {
     $this->registry->shouldReceive('register')->twice();
     $this->logger->shouldReceive('error')->once()->with(Mockery::pattern('/InvalidArray: .*say what the array holds/'), Mockery::type('array'));

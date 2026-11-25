@@ -72,7 +72,11 @@ final class MetaDiscovery implements DiscoveryInterface
     public function apply(): void
     {
         foreach ($this->getItems() as $item) {
-            /** @var class-string $class */
+            // discover() only stores arrays that name a loadable class; anything else is not ours.
+            if (! is_array($item) || ! is_string($item['class'] ?? null) || ! class_exists($item['class'])) {
+                continue;
+            }
+
             $class = $item['class'];
 
             if ($item['model'] ?? false) {
