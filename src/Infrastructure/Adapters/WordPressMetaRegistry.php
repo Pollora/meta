@@ -90,7 +90,7 @@ final readonly class WordPressMetaRegistry implements MetaRegistryInterface
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{object_subtype: string, type: string, single: bool, sanitize_callback: callable, show_in_rest: array<string, mixed>|false, label?: string, description?: string, default?: mixed, auth_callback?: callable, revisions_enabled?: bool}
      */
     private function argumentsFor(MetaSchema $schema, MetaDefinition $definition, string $subtype): array
     {
@@ -98,7 +98,7 @@ final readonly class WordPressMetaRegistry implements MetaRegistryInterface
             'object_subtype' => $subtype,
             'type' => $definition->wordPressType(),
             'single' => $definition->single,
-            'sanitize_callback' => $definition->sanitize ?? $this->sanitizerFor($definition),
+            'sanitize_callback' => $this->sanitizerOf($schema, $definition),
             'show_in_rest' => $definition->showInRest ? ['schema' => $definition->restSchema()] : false,
         ];
 
@@ -126,6 +126,46 @@ final readonly class WordPressMetaRegistry implements MetaRegistryInterface
         }
 
         return $arguments;
+    }
+
+    /**
+     * The callback WordPress runs to sanitize the meta: the declared one, or the one derived from the type.
+     *
+     * A declared callback that is not callable yet (a function a plugin defines later) is resolved when WordPress
+     * sanitizes a value, as it always was.
+     */
+    private function sanitizerOf(MetaSchema $schema, MetaDefinition $definition): callable
+    {
+        $declared = $definition->sanitize;
+
+        if ($declared === null) {
+            return $this->sanitizerFor($definition);
+        }
+
+        if (is_callable($declared)) {
+            return $declared;
+        }
+
+        $class = $schema->declaringClass;
+        $property = $definition->property;
+
+        return static fn (mixed ...$arguments): mixed => self::sanitizeLate($class, $property, $declared, $arguments);
+    }
+
+    /**
+     * Runs a declared sanitize callback that was not callable when the meta was registered.
+     *
+     * @param  array<int|string, mixed>  $arguments
+     *
+     * @throws InvalidMetaDefinitionException When it is still not callable.
+     */
+    private static function sanitizeLate(string $class, string $property, mixed $declared, array $arguments): mixed
+    {
+        if (! is_callable($declared)) {
+            throw InvalidMetaDefinitionException::forProperty($class, $property, 'sanitize: is not callable. Name a function, or a [class, method] pair that exists.');
+        }
+
+        return call_user_func_array($declared, $arguments);
     }
 
     private function sanitizerFor(MetaDefinition $definition): callable
